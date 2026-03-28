@@ -1,0 +1,524 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>打刻</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&family=DM+Mono:wght@400;500&display=swap');
+
+  :root {
+    --bg: #f5f5f7;
+    --surface: #ffffff;
+    --border: #e5e5ea;
+    --accent: #30d158;
+    --accent-red: #ff453a;
+    --accent-blue: #0a84ff;
+    --accent-purple: #bf5af2;
+    --text: #1c1c1e;
+    --muted: #8e8e93;
+    --muted-bg: #f2f2f7;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Noto Sans JP', sans-serif;
+    min-height: 100vh;
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  /* Setup screen */
+  #setup-screen {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 32px 24px;
+    gap: 24px;
+  }
+  .setup-title { font-size: 22px; font-weight: 700; text-align: center; }
+  .setup-sub { font-size: 14px; color: var(--muted); text-align: center; line-height: 1.6; }
+  .setup-card {
+    width: 100%; max-width: 400px;
+    background: var(--surface); border-radius: 16px;
+    padding: 24px; box-shadow: 0 2px 12px #0000000f;
+  }
+  .setup-label { font-size: 12px; color: var(--muted); margin-bottom: 8px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.05em; }
+  .setup-input {
+    width: 100%; padding: 12px 14px;
+    border: 1.5px solid var(--border); border-radius: 10px;
+    font-size: 14px; font-family: 'Noto Sans JP', sans-serif;
+    background: var(--muted-bg); outline: none;
+    color: var(--text);
+    transition: border-color 0.15s;
+  }
+  .setup-input:focus { border-color: var(--accent-blue); background: white; }
+  .setup-hint { font-size: 11px; color: var(--muted); margin-top: 6px; line-height: 1.5; }
+  .setup-btn {
+    width: 100%; max-width: 400px;
+    padding: 16px; background: var(--accent-blue); color: white; border: none;
+    border-radius: 14px; font-size: 16px; font-weight: 700;
+    font-family: 'Noto Sans JP', sans-serif; cursor: pointer;
+    transition: opacity 0.15s; -webkit-appearance: none;
+  }
+  .setup-btn:active { opacity: 0.8; }
+
+  /* Main app */
+  #app { display: none; padding: 0 0 32px; }
+
+  /* Header */
+  .header {
+    background: var(--surface);
+    padding: 56px 20px 16px;
+    border-bottom: 1px solid var(--border);
+    position: sticky; top: 0; z-index: 10;
+  }
+  .header-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; }
+  .app-name { font-size: 18px; font-weight: 700; }
+  .header-clock { font-family: 'DM Mono', monospace; font-size: 16px; font-weight: 500; color: var(--accent-blue); }
+  .header-date { font-size: 13px; color: var(--muted); }
+
+  /* Employee picker */
+  .emp-section { padding: 20px 16px 0; }
+  .section-label { font-size: 12px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 10px; }
+  .emp-list { display: flex; flex-direction: column; gap: 10px; }
+
+  .emp-card {
+    background: var(--surface);
+    border-radius: 16px;
+    padding: 18px 16px;
+    box-shadow: 0 1px 4px #00000010;
+    transition: transform 0.1s;
+  }
+  .emp-card:active { transform: scale(0.99); }
+
+  .emp-card-top { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
+  .emp-avatar { width: 44px; height: 44px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 18px; font-weight: 700; color: white; flex-shrink: 0; }
+  .emp-info { flex: 1; }
+  .emp-name { font-size: 16px; font-weight: 700; }
+  .emp-role { font-size: 12px; color: var(--muted); margin-top: 2px; }
+  .emp-status { font-size: 11px; font-weight: 600; padding: 4px 10px; border-radius: 20px; text-align: center; letter-spacing: 0.03em; }
+  .status-none { background: var(--muted-bg); color: var(--muted); }
+  .status-in { background: #30d15820; color: #1a9e3f; }
+  .status-done { background: var(--muted-bg); color: var(--muted); }
+  .status-paid { background: #bf5af220; color: #8944b8; }
+
+  .emp-times { font-family: 'DM Mono', monospace; font-size: 13px; color: var(--muted); margin-bottom: 14px; line-height: 1.8; min-height: 24px; }
+  .emp-times .t { color: var(--text); font-weight: 500; }
+
+  .emp-btns { display: flex; flex-direction: column; gap: 8px; }
+
+  .btn-stamp {
+    width: 100%; padding: 15px; border: none; border-radius: 12px;
+    font-size: 16px; font-weight: 700; font-family: 'Noto Sans JP', sans-serif;
+    cursor: pointer; transition: opacity 0.15s, transform 0.1s;
+    -webkit-appearance: none;
+  }
+  .btn-stamp:active:not(:disabled) { transform: scale(0.97); opacity: 0.85; }
+  .btn-stamp:disabled { opacity: 0.3; cursor: not-allowed; }
+
+  .btn-in { background: var(--accent); color: white; }
+  .btn-out { background: var(--accent-red); color: white; }
+  .btn-paid-sm {
+    width: 100%; padding: 11px; border: 1.5px solid var(--accent-purple); border-radius: 10px;
+    background: transparent; color: var(--accent-purple);
+    font-size: 13px; font-weight: 600; font-family: 'Noto Sans JP', sans-serif;
+    cursor: pointer; transition: background 0.15s;
+    -webkit-appearance: none;
+  }
+  .btn-paid-sm:active:not(:disabled) { background: #bf5af215; }
+  .btn-paid-sm:disabled { opacity: 0.3; cursor: not-allowed; }
+  .btn-fix {
+    width: 100%; padding: 9px; border: 1px solid var(--border); border-radius: 10px;
+    background: transparent; color: var(--muted);
+    font-size: 12px; font-family: 'Noto Sans JP', sans-serif;
+    cursor: pointer; transition: background 0.15s;
+    -webkit-appearance: none;
+  }
+  .btn-fix:active { background: var(--muted-bg); }
+
+  /* Toast */
+  .toast {
+    position: fixed; bottom: calc(24px + env(safe-area-inset-bottom)); left: 16px; right: 16px;
+    background: #1c1c1e; color: white;
+    border-radius: 14px; padding: 14px 18px;
+    font-size: 14px; font-weight: 500; text-align: center;
+    z-index: 999; opacity: 0;
+    transform: translateY(20px);
+    transition: opacity 0.25s, transform 0.25s;
+    pointer-events: none;
+  }
+  .toast.show { opacity: 1; transform: translateY(0); }
+  .toast.green { background: #1a9e3f; }
+  .toast.red { background: #c0392b; }
+  .toast.purple { background: #8944b8; }
+  .toast.amber { background: #b57800; }
+
+  /* Loading */
+  .loading { text-align: center; padding: 60px 20px; color: var(--muted); font-size: 14px; }
+
+  /* Modal */
+  .modal-overlay {
+    position: fixed; inset: 0; background: #00000060;
+    z-index: 100; display: flex; align-items: flex-end;
+    opacity: 0; pointer-events: none; transition: opacity 0.2s;
+  }
+  .modal-overlay.open { opacity: 1; pointer-events: all; }
+  .modal {
+    background: var(--surface); border-radius: 20px 20px 0 0;
+    width: 100%; padding: 24px 20px calc(24px + env(safe-area-inset-bottom));
+    transform: translateY(100%); transition: transform 0.3s cubic-bezier(0.32,0.72,0,1);
+  }
+  .modal-overlay.open .modal { transform: translateY(0); }
+  .modal-title { font-size: 17px; font-weight: 700; margin-bottom: 6px; }
+  .modal-sub { font-size: 13px; color: var(--muted); margin-bottom: 20px; }
+  .modal-row { margin-bottom: 16px; }
+  .modal-label { font-size: 12px; color: var(--muted); font-weight: 500; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 6px; }
+  .modal-input {
+    width: 100%; padding: 12px 14px;
+    border: 1.5px solid var(--border); border-radius: 10px;
+    font-size: 15px; font-family: 'DM Mono', monospace;
+    background: var(--muted-bg); outline: none; color: var(--text);
+  }
+  .modal-input:focus { border-color: var(--accent-blue); background: white; }
+  .modal-row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px; }
+  .modal-btns { display: flex; gap: 10px; margin-top: 20px; }
+  .modal-cancel { flex: 1; padding: 14px; border: 1.5px solid var(--border); border-radius: 12px; background: transparent; color: var(--text); font-size: 15px; font-weight: 600; font-family: 'Noto Sans JP', sans-serif; cursor: pointer; }
+  .modal-save { flex: 2; padding: 14px; border: none; border-radius: 12px; background: var(--accent-blue); color: white; font-size: 15px; font-weight: 700; font-family: 'Noto Sans JP', sans-serif; cursor: pointer; }
+  .paid-toggle { display: flex; align-items: center; gap: 10px; padding: 12px 0; }
+  .paid-toggle input[type=checkbox] { width: 18px; height: 18px; accent-color: var(--accent-purple); }
+  .paid-toggle label { font-size: 15px; }
+
+  /* Settings gear */
+  .settings-btn {
+    background: var(--muted-bg); border: none; border-radius: 50%;
+    width: 32px; height: 32px; display: flex; align-items: center; justify-content: center;
+    font-size: 16px; cursor: pointer; color: var(--muted);
+  }
+</style>
+</head>
+<body>
+
+<!-- ===== 初期設定画面 ===== -->
+<div id="setup-screen">
+  <div style="font-size:40px">⏱</div>
+  <div class="setup-title">勤怠打刻アプリ</div>
+  <div class="setup-sub">初回のみ設定が必要です。<br>管理者から受け取ったURLを入力してください。</div>
+
+  <div class="setup-card">
+    <div class="setup-label">Apps Script の URL</div>
+    <input class="setup-input" type="url" id="gas-url" placeholder="https://script.google.com/macros/s/..." autocomplete="off" autocorrect="off" spellcheck="false">
+    <div class="setup-hint">スプレッドシートをデプロイしたあとに発行されるURLです。</div>
+  </div>
+
+  <div class="setup-card">
+    <div class="setup-label">あなたの名前を選択</div>
+    <select class="setup-input" id="setup-emp-select">
+      <option value="">-- 選択してください --</option>
+      <option value="1|小川王惠">小川王惠</option>
+      <option value="2|江藤直美">江藤直美</option>
+      <option value="3|佐藤ちさと">佐藤ちさと</option>
+      <option value="4|苗村桃子">苗村桃子</option>
+    </select>
+  </div>
+
+  <button class="setup-btn" onclick="saveSetup()">設定を保存して始める</button>
+</div>
+
+<!-- ===== メインアプリ ===== -->
+<div id="app">
+  <div class="header">
+    <div class="header-top">
+      <div class="app-name">打刻</div>
+      <div style="display:flex;align-items:center;gap:10px">
+        <div class="header-clock" id="header-clock">--:--</div>
+        <button class="settings-btn" onclick="resetSetup()" title="設定リセット">⚙️</button>
+      </div>
+    </div>
+    <div class="header-date" id="header-date"></div>
+  </div>
+
+  <div class="emp-section">
+    <div class="loading" id="loading">読み込み中...</div>
+    <div class="emp-list" id="emp-list" style="display:none"></div>
+  </div>
+</div>
+
+<!-- 修正モーダル -->
+<div class="modal-overlay" id="modal" onclick="closeModalOutside(event)">
+  <div class="modal">
+    <div class="modal-title">✏️ 打刻を修正</div>
+    <div class="modal-sub" id="modal-sub"></div>
+    <div class="paid-toggle">
+      <input type="checkbox" id="modal-paid" onchange="toggleModalPaid()">
+      <label for="modal-paid">有給休暇に変更</label>
+    </div>
+    <div id="modal-time-block">
+      <div class="modal-row-2">
+        <div><div class="modal-label">出勤時刻</div><input type="time" class="modal-input" id="modal-in"></div>
+        <div><div class="modal-label">退勤時刻</div><input type="time" class="modal-input" id="modal-out"></div>
+      </div>
+    </div>
+    <div class="modal-btns">
+      <button class="modal-cancel" onclick="closeModal()">キャンセル</button>
+      <button class="modal-save" onclick="saveEdit()">修正を保存</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ===== 設定 =====
+// ★ 管理者はここの従業員リストを実際の名前に変更してください
+const EMPLOYEES = [
+  { id: 1, name: '小川王惠', color: '#30d158', role: '代表取締役' },
+  { id: 2, name: '江藤直美', color: '#ff9f0a', role: 'スタッフ' },
+  { id: 3, name: '佐藤ちさと', color: '#0a84ff', role: 'スタッフ' },
+  { id: 4, name: '苗村桃子', color: '#bf5af2', role: 'スタッフ' },
+];
+
+const DAYS = ['日','月','火','水','木','金','土'];
+
+// 「自分のみ」モード：自分の打刻だけ表示（スマホ向け）
+// 管理者画面では false にして全員表示
+const SINGLE_MODE = true;
+
+let GAS_URL = localStorage.getItem('kintai_gas_url') || '';
+let myEmpId = localStorage.getItem('kintai_emp_id') || '';
+let myEmpName = localStorage.getItem('kintai_emp_name') || '';
+let todayData = {}; // empId -> record
+let editTarget = null;
+
+// ===== 初期化 =====
+function init() {
+  if (!GAS_URL || !myEmpId) {
+    document.getElementById('setup-screen').style.display = 'flex';
+    document.getElementById('app').style.display = 'none';
+  } else {
+    document.getElementById('setup-screen').style.display = 'none';
+    document.getElementById('app').style.display = 'block';
+    startClock();
+    loadToday();
+  }
+}
+
+function saveSetup() {
+  const url = document.getElementById('gas-url').value.trim();
+  const empVal = document.getElementById('setup-emp-select').value;
+  if (!url) return alert('URLを入力してください');
+  if (!empVal) return alert('名前を選択してください');
+  const [id, name] = empVal.split('|');
+  localStorage.setItem('kintai_gas_url', url);
+  localStorage.setItem('kintai_emp_id', id);
+  localStorage.setItem('kintai_emp_name', name);
+  GAS_URL = url; myEmpId = id; myEmpName = name;
+  init();
+}
+
+function resetSetup() {
+  if (!confirm('設定をリセットしますか？')) return;
+  localStorage.removeItem('kintai_gas_url');
+  localStorage.removeItem('kintai_emp_id');
+  localStorage.removeItem('kintai_emp_name');
+  location.reload();
+}
+
+// ===== 時計 =====
+function startClock() {
+  function tick() {
+    const n = new Date();
+    const t = `${String(n.getHours()).padStart(2,'0')}:${String(n.getMinutes()).padStart(2,'0')}`;
+    const d = `${n.getFullYear()}年${n.getMonth()+1}月${n.getDate()}日（${DAYS[n.getDay()]}）`;
+    document.getElementById('header-clock').textContent = t;
+    document.getElementById('header-date').textContent = d;
+  }
+  tick();
+  setInterval(tick, 10000);
+}
+
+// ===== API =====
+async function api(params) {
+  const url = new URL(GAS_URL);
+  Object.entries(params).forEach(([k,v]) => url.searchParams.set(k, v));
+  const res = await fetch(url.toString(), { method: 'GET', redirect: 'follow' });
+  return res.json();
+}
+
+// ===== データ読み込み =====
+async function loadToday() {
+  document.getElementById('loading').style.display = 'block';
+  document.getElementById('emp-list').style.display = 'none';
+  todayData = {};
+
+  // SINGLE_MODE: 自分のデータだけ取得
+  const targets = SINGLE_MODE
+    ? EMPLOYEES.filter(e => String(e.id) === String(myEmpId))
+    : EMPLOYEES;
+
+  for (const emp of targets) {
+    try {
+      const res = await api({ action: 'getToday', empId: emp.id });
+      if (res.ok && res.found) {
+        todayData[emp.id] = res;
+      } else {
+        todayData[emp.id] = null;
+      }
+    } catch(e) {
+      todayData[emp.id] = null;
+    }
+  }
+
+  document.getElementById('loading').style.display = 'none';
+  renderEmpList(targets);
+  document.getElementById('emp-list').style.display = 'flex';
+}
+
+// ===== レンダリング =====
+function renderEmpList(targets) {
+  const list = document.getElementById('emp-list');
+  list.innerHTML = '';
+
+  targets.forEach(emp => {
+    const rec = todayData[emp.id];
+    const isPaid = rec && rec.type === 'paid';
+    const isIn = rec && rec.type === 'in' && rec.inTime && !rec.outTime;
+    const isDone = rec && rec.type === 'in' && rec.outTime;
+
+    let statusLabel, statusCls, timesHtml, btnsHtml;
+
+    if (isPaid) {
+      statusLabel = '有給休暇'; statusCls = 'status-paid';
+      timesHtml = '本日は有給休暇です';
+      btnsHtml = `
+        <button class="btn-stamp btn-in" disabled>出勤</button>
+        <button class="btn-stamp btn-out" disabled>退勤</button>
+        <button class="btn-paid-sm" disabled>有給申請済み ✓</button>
+        <button class="btn-fix" onclick="openEdit(${emp.id})">✏️ 修正</button>`;
+    } else if (isDone) {
+      statusLabel = '退勤済み'; statusCls = 'status-done';
+      timesHtml = `出勤 <span class="t">${rec.inTime}</span>　退勤 <span class="t">${rec.outTime}</span>`;
+      btnsHtml = `
+        <button class="btn-stamp btn-in" disabled>出勤済み ✓</button>
+        <button class="btn-stamp btn-out" disabled>退勤済み ✓</button>
+        <button class="btn-paid-sm" disabled>有給申請</button>
+        <button class="btn-fix" onclick="openEdit(${emp.id})">✏️ 修正</button>`;
+    } else if (isIn) {
+      statusLabel = '出勤中'; statusCls = 'status-in';
+      timesHtml = `出勤 <span class="t">${rec.inTime}</span>　退勤 —`;
+      btnsHtml = `
+        <button class="btn-stamp btn-in" disabled>出勤済み ✓</button>
+        <button class="btn-stamp btn-out" onclick="doStamp(${emp.id},'out','${emp.name}')">退勤</button>
+        <button class="btn-paid-sm" disabled>有給申請</button>
+        <button class="btn-fix" onclick="openEdit(${emp.id})">✏️ 出勤時刻を修正</button>`;
+    } else {
+      statusLabel = '未出勤'; statusCls = 'status-none';
+      timesHtml = '—';
+      btnsHtml = `
+        <button class="btn-stamp btn-in" onclick="doStamp(${emp.id},'in','${emp.name}')">出勤</button>
+        <button class="btn-stamp btn-out" disabled>退勤</button>
+        <button class="btn-paid-sm" onclick="doStamp(${emp.id},'paid','${emp.name}')">有給申請</button>`;
+    }
+
+    list.innerHTML += `
+      <div class="emp-card">
+        <div class="emp-card-top">
+          <div class="emp-avatar" style="background:${emp.color}">${emp.name[0]}</div>
+          <div class="emp-info">
+            <div class="emp-name">${emp.name}</div>
+            <div class="emp-role">${emp.role}</div>
+          </div>
+          <div class="emp-status ${statusCls}">${statusLabel}</div>
+        </div>
+        <div class="emp-times">${timesHtml}</div>
+        <div class="emp-btns">${btnsHtml}</div>
+      </div>`;
+  });
+}
+
+// ===== 打刻 =====
+async function doStamp(empId, type, empName) {
+  setLoading(true);
+  try {
+    const res = await api({ action: 'stamp', empId, empName, type });
+    if (res.ok) {
+      const msg = res.message + (res.time ? `（${res.time}）` : '');
+      const color = type === 'in' ? 'green' : type === 'out' ? 'red' : 'purple';
+      toast(msg, color);
+      await loadToday();
+    } else {
+      toast('エラー: ' + res.error, '');
+    }
+  } catch(e) {
+    toast('通信エラーが発生しました', '');
+  }
+  setLoading(false);
+}
+
+// ===== 修正 =====
+function openEdit(empId) {
+  const rec = todayData[empId];
+  const emp = EMPLOYEES.find(e => e.id === empId);
+  editTarget = { empId, rowIndex: rec ? rec.rowIndex : null };
+
+  document.getElementById('modal-sub').textContent = emp.name + '　本日分';
+  document.getElementById('modal-paid').checked = rec && rec.type === 'paid';
+  document.getElementById('modal-in').value = rec ? rec.inTime || '' : '';
+  document.getElementById('modal-out').value = rec ? rec.outTime || '' : '';
+  toggleModalPaid();
+  document.getElementById('modal').classList.add('open');
+}
+
+async function saveEdit() {
+  if (!editTarget || !editTarget.rowIndex) {
+    toast('修正対象が見つかりません', ''); return;
+  }
+  const paid = document.getElementById('modal-paid').checked;
+  const inT = document.getElementById('modal-in').value;
+  const outT = document.getElementById('modal-out').value;
+  if (!paid && !inT) { toast('出勤時刻を入力してください', ''); return; }
+
+  closeModal();
+  setLoading(true);
+  try {
+    const params = { action: 'edit', rowIndex: editTarget.rowIndex, type: paid ? 'paid' : 'in', inTime: inT, outTime: outT };
+    const res = await api(params);
+    if (res.ok) {
+      toast('修正しました', 'amber');
+      await loadToday();
+    } else {
+      toast('エラー: ' + res.error, '');
+    }
+  } catch(e) {
+    toast('通信エラーが発生しました', '');
+  }
+  setLoading(false);
+}
+
+function toggleModalPaid() {
+  const paid = document.getElementById('modal-paid').checked;
+  document.getElementById('modal-time-block').style.display = paid ? 'none' : '';
+}
+function closeModal() { document.getElementById('modal').classList.remove('open'); }
+function closeModalOutside(e) { if (e.target === document.getElementById('modal')) closeModal(); }
+
+// ===== UI ユーティリティ =====
+function setLoading(on) {
+  document.querySelectorAll('.btn-stamp,.btn-paid-sm,.btn-fix').forEach(b => { b.disabled = on; });
+}
+
+function toast(msg, type) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className = `toast ${type} show`;
+  setTimeout(() => { el.className = `toast ${type}`; }, 3000);
+}
+
+init();
+</script>
+</body>
+</html>
